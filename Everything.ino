@@ -10,6 +10,8 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <WiFiManager.h>
+
 #include "credentials.h"
 
 // Screen Declaration
@@ -36,8 +38,10 @@ float timerRef = 10000;
 float previousMillis = 0;
 bool currentlyDisplaying = true;
 
+// Waiting for the display
+bool messageReceived = false;
+bool senderReceived = false;
 
-// CHANGE IT FOR EVERY ESP32
 // MQTT Client to sub/pub
 PicoMQTT::Client mqtt;
 
@@ -51,8 +55,8 @@ String httpRequest(){
     // If you need Node-RED/server authentication, insert user and password below
     http.begin(authPath.c_str());
     http.addHeader("Content-Type", "application/json");
-    const String input = "{\"identity\":\"" + user + "\",\"password\":\""+password+"\"}";
-
+    const String input = "{\"identity\":\"" + user + "\",\"password\":\""+passwordUser+"\"}";
+    Serial.println(input);
     JSONVar myObject = JSON.parse(input);
     int test = http.POST(input);
     if(test>0){
@@ -68,17 +72,26 @@ String httpRequest(){
     return payload;
 }
 
-void manageColor(){
+void manageColor(String hex){
     //to RGB
-    // long int rgb=atol(hex+1);
-    // char r=(char)(rgb>>16);
-    // char g=(char)(r>>8);
-    // char b=(char)rgb;
+    long number = (long) strtol( &hex[1], NULL, 16);
     // Serial.println(hex);
-    // Serial.println(r);
-    // Serial.println(g);
-    // Serial.println(b);
+    // Serial.println(number);
+    int r = number >> 16;
+    int g = number >> 8 & 0xFF;
+    int b = number & 0xFF;
+    
+    // In case we need it to be between 0 and 1
+    // float red = float(r)/255;
+    // float green = float(g)/255;
+    // float blue = float(b)/255;
 
+    // Serial.print("red is ");
+    // Serial.println(red);
+    // Serial.print("green is ");
+    // Serial.println(g);
+    // Serial.print("blue is ");
+    // Serial.println(b);
     digitalWrite(redPin, HIGH); // turn the LED on
 }
 
@@ -98,6 +111,40 @@ void publishColorAndMessage(){
 
 // Setup everything
 void setup() {
+    //WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+    WiFiManager wm;
+
+    // reset settings - wipe stored credentials for testing
+    // these are stored by the esp library
+    //wm.resetSettings();
+
+    // Automatically connect using saved credentials,
+    // if connection fails, it starts an access point with the specified name ( "AutoConnectAP"),
+    // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
+    // then goes into a blocking loop awaiting configuration and will return success result
+    wm.setConfigPortalTimeout(300);
+    bool res;
+    // res = wm.autoConnect(); // auto generated AP name from chipid
+    // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
+    res = wm.autoConnect(accessPoint, accessPointPassword); // password protected ap
+
+    if(!res) {
+        Serial.println("Failed to connect");
+        // ESP.restart();
+    } 
+    else {
+        //if you get here you have connected to the WiFi    
+        Serial.println("connected...yeey :)");
+    }
+
+    // Connect to Wifi using the traditional way of providing SSID and Password
+    // Serial.printf("Connecting to WiFi %s\n", WIFI_SSID);
+    // WiFi.mode(WIFI_STA);
+    // WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    // while (WiFi.status() != WL_CONNECTED) { delay(1000); Serial.println("trying to connect");}
+    // Serial.println("WiFi connected.");
+
+
     // mqtt auth
     mqtt.host = mqttHost;
     mqtt.port = mqttPort;
@@ -136,17 +183,10 @@ void setup() {
       display.display(); 
       //delay(1000);
 
-    // Connect to Wifi
-    Serial.printf("Connecting to WiFi %s\n", WIFI_SSID);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    while (WiFi.status() != WL_CONNECTED) { delay(1000); Serial.println("trying to connect");}
-    Serial.println("WiFi connected.");
-
     // Subscribe to a topic pattern and attach a callback
     mqtt.subscribe("color", [](const char * topic, const char * payload) {
         // Serial.printf(payload);
-        manageColor();
+        manageColor(String(payload));
     });
 
     mqtt.subscribe("message", [](const char * topic, const char * payload) {
@@ -165,18 +205,35 @@ void setup() {
     mqtt.begin();
 }
 
+
+
 // Display Message
+void displaySenderAndMessage(){
+    display.display();
+    senderReceived = false;
+    messageReceived = false;
+}
+
 void message(String msg){
-  display.clearDisplay();
   display.setCursor(0,32);
   display.println(msg);
-  display.display();
+  if(senderReceived){
+    displaySenderAndMessage();
+  }
+  else{
+    messageReceived = true;
+  }
 }
 
 void sender(String exp){
   display.setCursor(0,0);
   display.println(exp);
-  display.display();
+  if(messageReceived){
+    displaySenderAndMessage();
+  }
+  else{
+    senderReceived = true;
+  }
 }
 
 void loop() {
