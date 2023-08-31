@@ -27,9 +27,9 @@
 #define touchPin 34
 
 // Led
-#define redPin 18
-#define greenPin 22
-#define bluePin 19
+#define redPin 25
+#define greenPin 26
+#define bluePin 27
 
 // setting PWM properties
 const int freq = 5000;
@@ -209,10 +209,7 @@ void setup() {
 
     mqtt.subscribe("message", [](const char * topic, const char * payload) {
         // Serial.printf(payload);
-        previousMillis=millis();
         message(String(payload));
-        currentlyDisplaying = true;
-        timer = timerRef;
       });
 
     mqtt.subscribe("sender", [](const char * topic, const char * payload) {
@@ -230,6 +227,10 @@ void displaySenderAndMessage(){
     display.display();
     senderReceived = false;
     messageReceived = false;
+
+    previousMillis=millis();
+    currentlyDisplaying = true;
+    timer = timerRef;
 }
 
 void message(String msg){
@@ -255,6 +256,19 @@ void sender(String exp){
 }
 
 void loop() {
+  //  // increase the LED brightness
+  // for(int dutyCycle = 0; dutyCycle <= 255; dutyCycle++){   
+  //   // changing the LED brightness with PWM
+  //   ledcWrite(redChannel, dutyCycle);
+  //   delay(15);
+  // }
+
+  // // decrease the LED brightness
+  // for(int dutyCycle = 255; dutyCycle >= 0; dutyCycle--){
+  //   // changing the LED brightness with PWM
+  //   ledcWrite(redChannel, dutyCycle);   
+  //   delay(15);
+  // }
     // Serial.println(millis());
     if(timer >= 0){
       timer = timer - (millis()-previousMillis);
