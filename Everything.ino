@@ -28,9 +28,15 @@
 
 // Led
 #define redPin 18
-#define greenPin 5
+#define greenPin 22
 #define bluePin 19
 
+// setting PWM properties
+const int freq = 5000;
+const int redChannel = 0;
+const int blueChannel = 1;
+const int greenChannel = 2;
+const int resolution = 8;
 
 // Timer for the touch capacitor
 float timer = 10000;
@@ -92,7 +98,9 @@ void manageColor(String hex){
     // Serial.println(g);
     // Serial.print("blue is ");
     // Serial.println(b);
-    digitalWrite(redPin, HIGH); // turn the LED on
+    ledcWrite(redChannel, r);
+    ledcWrite(blueChannel, b);
+    ledcWrite(greenChannel, g);
 }
 
 // publish color and message after fetching them from the db
@@ -163,9 +171,19 @@ void setup() {
 
     // Led Pins
     // initialize digital pin GIOP18 as an output.
-    pinMode(redPin, OUTPUT);
-    pinMode(greenPin, OUTPUT);
-    pinMode(bluePin, OUTPUT);
+    // pinMode(redPin, OUTPUT);
+    // pinMode(greenPin, OUTPUT);
+    //pinMode(bluePin, OUTPUT);
+
+     // configure LED PWM functionalitites
+    ledcSetup(redChannel, freq, resolution);
+    ledcSetup(blueChannel, freq, resolution);
+    ledcSetup(greenChannel, freq, resolution);
+  
+    // attach the channel to the GPIO to be controlled
+    ledcAttachPin(redPin, redChannel);
+    ledcAttachPin(bluePin, blueChannel);
+    ledcAttachPin(greenPin, greenChannel);
 
     // Display
     if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
@@ -249,7 +267,9 @@ void loop() {
         display.clearDisplay();
         display.display();
         currentlyDisplaying = false;
-        digitalWrite(18, LOW);
+        ledcWrite(redChannel, 0);
+        ledcWrite(greenChannel, 0);
+        ledcWrite(blueChannel, 0);
       }
     }
     // This will automatically reconnect the client if needed.  Re-subscribing to topics is never required.
